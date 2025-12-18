@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tasty Corner - Nourriture Bio Facile & Saine</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="#" class="logo">Tasty Corner</a>
+            <button class="burger-menu" id="burgerBtn" aria-label="Menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <div class="nav-links" id="navLinks">
+                <a href="#home">Accueil</a>
+                <a href="#menu">Menu</a>
+                <a href="#about">À propos</a>
+                <a href="#contact">Contact</a>
+                <button class="btn-contact">CONTACT NOW</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Organic Foods Made<br>Easy & Healthy</h1>
+            <p>Explorez nos plats biologiques délicieux et sains</p>
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="Rechercher un plat, ingrédient ou pays..." />
+                <button id="searchBtn"><i class="fas fa-search"></i></button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Sidebar Filters -->
+    <button class="filter-toggle-btn" id="filterToggleBtn">
+        <i class="fas fa-filter"></i> Filtres
+    </button>
+    
+    <div class="filter-sidebar" id="filterSidebar">
+        <div class="filter-sidebar-header">
+            <h2>Filtres</h2>
+            <button class="close-sidebar-btn" id="closeSidebarBtn">&times;</button>
+        </div>
+        
+        <div class="filter-section">
+            <h3>Filtrer par pays</h3>
+            <select id="countryFilter">
+                <option value="">Tous les pays</option>
+            </select>
+        </div>
+        
+        <div class="filter-section">
+            <h3>Exclure un ingrédient</h3>
+            <input type="text" id="excludeIngredient" placeholder="Ex: chicken, beef..." />
+        </div>
+        
+        <div class="filter-section">
+            <h3>Trier par prix</h3>
+            <button class="filter-btn" id="sortPriceAsc">
+                <i class="fas fa-arrow-up"></i> Prix croissant
+            </button>
+            <button class="filter-btn" id="sortPriceDesc">
+                <i class="fas fa-arrow-down"></i> Prix décroissant
+            </button>
+        </div>
+    </div>
+    
+    <div class="filter-actions" id="filterActions">
+        <button class="btn-apply" id="applyFilters">APPLIQUER</button>
+        <button class="btn-reset" id="resetFilters">RÉINITIALISER</button>
+    </div>
+    
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Menu Section -->
+    <section class="menu" id="menu">
+        <h2>Choose & Enjoy</h2>
+        <p>Explorez nos recettes sélectionnées avec soin chaque jour</p>
+        
+        <div id="loadingSpinner" class="loading-spinner hidden">
+            <div class="spinner"></div>
+            <p>Chargement des plats...</p>
+        </div>
+
+        <div id="menuGrid" class="menu-grid"></div>
+
+        <button id="resetBtn" class="btn-view-all">VOIR LES PLATS PAR DÉFAUT</button>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>&copy; 2025 Tasty Corner. Tous droits réservés.</p>
+    </footer>
+
+    <!-- Modal pour les détails du plat -->
+    <div id="mealModal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <div id="mealDetails"></div>
+        </div>
+    </div>
+
+    <script src="recettes.js"></script>
+    <script>
+        const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const menuGrid = document.getElementById('menuGrid');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const resetBtn = document.getElementById('resetBtn');
+        const countryFilter = document.getElementById('countryFilter');
+        const excludeIngredient = document.getElementById('excludeIngredient');
+        const applyFiltersBtn = document.getElementById('applyFilters');
+        const resetFiltersBtn = document.getElementById('resetFilters');
+        const sortPriceAscBtn = document.getElementById('sortPriceAsc');
+        const sortPriceDescBtn = document.getElementById('sortPriceDesc');
+        
+        let allMealsCache = [];
+        let currentDisplayedMeals = [];
+
+        // Charger les pays disponibles
+        async function loadCountries() {
+            try {
+                const response = await fetch('https://www.themealdb.com/api/json/v1/1/list.php?a=list');
+                const data = await response.json();
+                if (data.meals) {
+                    data.meals.forEach(item => {
+                        const option = document.createElement('option');
+                        option.value = item.strArea;
+                        option.textContent = item.strArea;
+                        countryFilter.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Erreur lors du chargement des pays:', error);
+            }
+        }
+
+        // Charger les plats par défaut au démarrage
+        async function loadDefaultMeals() {
+            loadingSpinner.classList.remove('hidden');
+            menuGrid.innerHTML = '';
+            
+            try {
+                const meals = await getAllMeals();
+                allMealsCache = meals; // Mettre en cache
+                displayMeals(meals); // Afficher tous les plats
+            } catch (error) {
+                console.error('Erreur:', error);
+                menuGrid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: red;">Erreur lors du chargement des plats</p>';
+            } finally {
+                loadingSpinner.classList.add('hidden');
+            }
+        }
+
+        // Afficher les plats
+        function displayMeals(meals) {
+            menuGrid.innerHTML = '';
+            
+            if (!meals || meals.length === 0) {
+                menuGrid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #999;">Aucun plat trouvé</p>';
+                return;
+            }
+
+            // Générer les prix si nécessaire et stocker
+            const mealsWithPrices = meals.map(meal => {
+                if (!meal.generatedPrice) {
+                    meal.generatedPrice = Math.floor(Math.random() * 15) + 8;
+                    meal.generatedTime = Math.floor(Math.random() * 40) + 15;
+                    meal.generatedCalories = Math.floor(Math.random() * 300) + 500;
+                }
+                return meal;
+            });
+            
+            currentDisplayedMeals = mealsWithPrices;
+
+            mealsWithPrices.forEach(meal => {
+                const card = document.createElement('div');
+                card.className = 'menu-card';
+                
+                const name = meal.strMeal || 'Plat';
+                const image = meal.strMealThumb || '';
+                const category = meal.strCategory || 'Bio';
+                const cuisine = meal.strArea || '';
+
+                card.innerHTML = `
+                    <div class="card-image">
+                        <img src="${image}" alt="${name}" style="width: 100%; height: 100%; object-fit: cover;">
+                        <span class="label">${cuisine || category}</span>
+                    </div>
+                    <h3>${name}</h3>
+                    <div class="card-info">
+                        <span class="price">€ ${meal.generatedPrice}</span>
+                        <span class="time">⏱ ${meal.generatedTime} min</span>
+                    </div>
+                    <div class="card-meta">
+                        <span>🔥 ${meal.generatedCalories} cal</span>
+                    </div>
+                    <button class="btn-order" onclick="alert('Plat ajouté au panier: ${name}')">COMMANDER</button>
+                    <button class="btn-details" onclick="showMealDetails('${meal.idMeal}')">DÉTAILS</button>
+                `;
+                
+                menuGrid.appendChild(card);
+            });
+        }
+
+        // Rechercher
+        async function performSearch() {
+            const query = searchInput.value.trim();
+            
+            if (query.length < 2) {
+                alert('Veuillez entrer au moins 2 caractères');
+                return;
+            }
+
+            loadingSpinner.classList.remove('hidden');
+            menuGrid.innerHTML = '';
+            
+            try {
+                const meals = await searchCombined(query);
+                displayMeals(meals);
+            } catch (error) {
+                console.error('Erreur:', error);
+                menuGrid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: red;">Erreur lors de la recherche</p>';
+            } finally {
+                loadingSpinner.classList.add('hidden');
+            }
+        }
+
+        // Écouteurs d'événements
+        searchBtn.addEventListener('click', performSearch);
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+
+        resetBtn.addEventListener('click', () => {
+            searchInput.value = '';
+            loadDefaultMeals();
+        });
+
+        // Fonction pour appliquer les filtres
+        async function applyFilters() {
+            const selectedCountry = countryFilter.value;
+            const excludedIngredient = excludeIngredient.value.trim().toLowerCase();
+            
+            loadingSpinner.classList.remove('hidden');
+            menuGrid.innerHTML = '';
+            
+            try {
+                let filteredMeals = [];
+                
+                // Filtrer par pays si sélectionné
+                if (selectedCountry) {
+                    filteredMeals = await getMealsByCountry(selectedCountry);
+                } else {
+                    filteredMeals = allMealsCache.length > 0 ? allMealsCache : await getAllMeals();
+                }
+                
+                // Filtrer par ingrédient exclu si renseigné
+                if (excludedIngredient && filteredMeals.length > 0) {
+                    // Charger les détails de chaque plat pour vérifier les ingrédients
+                    const mealsWithDetails = await Promise.all(
+                        filteredMeals.slice(0, 50).map(async (meal) => {
+                            const details = await getMealDetails(meal.idMeal);
+                            return details;
+                        })
+                    );
+                    
+                    // Filtrer les plats qui ne contiennent pas l'ingrédient exclu
+                    filteredMeals = mealsWithDetails.filter(meal => {
+                        if (!meal) return false;
+                        
+                        for (let i = 1; i <= 20; i++) {
+                            const ingredient = meal[`strIngredient${i}`];
+                            if (ingredient && ingredient.toLowerCase().includes(excludedIngredient)) {
+                                return false;
+                            }
+                        }
+                        return true;
+                    });
+                }
+                
+                displayMeals(filteredMeals);
+            } catch (error) {
+                console.error('Erreur:', error);
+                menuGrid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: red;">Erreur lors du filtrage</p>';
+            } finally {
+                loadingSpinner.classList.add('hidden');
+            }
+        }
+        
+        // Réinitialiser les filtres
+        function resetFilters() {
+            countryFilter.value = '';
+            excludeIngredient.value = '';
+            displayMeals(allMealsCache);
+        }
+        
+        // Event listeners pour les filtres
+        applyFiltersBtn.addEventListener('click', applyFilters);
+        resetFiltersBtn.addEventListener('click', resetFilters);
+        
+        // Fonctions de tri par prix
+        function sortByPriceAsc() {
+            const sorted = [...currentDisplayedMeals].sort((a, b) => a.generatedPrice - b.generatedPrice);
+            displayMeals(sorted);
+        }
+        
+        function sortByPriceDesc() {
+            const sorted = [...currentDisplayedMeals].sort((a, b) => b.generatedPrice - a.generatedPrice);
+            displayMeals(sorted);
+        }
+        
+        // Event listeners pour le tri
+        sortPriceAscBtn.addEventListener('click', sortByPriceAsc);
+        sortPriceDescBtn.addEventListener('click', sortByPriceDesc);
+
+        // Charger les plats et pays par défaut au démarrage
+        loadDefaultMeals();
+        loadCountries();
+
+        // Afficher les détails du plat
+        async function showMealDetails(mealId) {
+            try {
+                const meal = await getMealDetails(mealId);
+                if (meal) {
+                    displayMealDetailsModal(meal);
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('Erreur lors du chargement des détails');
+            }
+        }
+
+        // Afficher la modale avec les détails
+        function displayMealDetailsModal(meal) {
+            const modal = document.getElementById('mealModal');
+            const detailsDiv = document.getElementById('mealDetails');
+            
+            // Récupérer les ingrédients
+            let ingredients = '';
+            for (let i = 1; i <= 20; i++) {
+                const ingredient = meal[`strIngredient${i}`];
+                const measure = meal[`strMeasure${i}`];
+                if (ingredient && ingredient.trim()) {
+                    ingredients += `<li>${measure} ${ingredient}</li>`;
+                }
+            }
+
+            detailsDiv.innerHTML = `
+                <h2>${meal.strMeal}</h2>
+                <img src="${meal.strMealThumb}" alt="${meal.strMeal}" style="width: 100%; max-width: 400px; border-radius: 10px; margin: 20px auto; display: block;">
+                
+                <div style="text-align: center; margin: 20px 0;">
+                    <p><strong>Catégorie:</strong> ${meal.strCategory}</p>
+                    <p><strong>Cuisine:</strong> ${meal.strArea}</p>
+                    
+                    <h3>Ingrédients:</h3>
+                    <ul style="margin: 0 auto; display: inline-block; text-align: left;">
+                        ${ingredients}
+                    </ul>
+                    
+                    <h3>Instructions:</h3>
+                    <p>${meal.strInstructions}</p>
+                    
+                    ${meal.strYoutube ? `<p><a href="${meal.strYoutube}" target="_blank" style="color: #667eea; text-decoration: none; font-weight: 600;">🎥 Voir sur YouTube</a></p>` : ''}
+                </div>
+            `;
+            
+            modal.classList.remove('hidden');
+        }
+
+        // Fermer la modale
+        const modal = document.getElementById('mealModal');
+        const closeBtn = document.querySelector('.close-btn');
+
+        closeBtn.addEventListener('click', () => {
+            modal.classList.add('hidden');
+        });
+
+        window.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.add('hidden');
+            }
+        });
+
+        // Menu Burger
+        const burgerBtn = document.getElementById('burgerBtn');
+        const navLinks = document.getElementById('navLinks');
+
+        burgerBtn.addEventListener('click', () => {
+            navLinks.classList.toggle('active');
+            burgerBtn.classList.toggle('active');
+        });
+
+        // Fermer le menu quand on clique sur un lien
+        document.querySelectorAll('.nav-links a, .nav-links button').forEach(link => {
+            link.addEventListener('click', () => {
+                navLinks.classList.remove('active');
+                burgerBtn.classList.remove('active');
+            });
+        });
+        
+        // Sidebar Filters
+        const filterToggleBtn = document.getElementById('filterToggleBtn');
+        const filterSidebar = document.getElementById('filterSidebar');
+        const closeSidebarBtn = document.getElementById('closeSidebarBtn');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        const filterActions = document.getElementById('filterActions');
+        
+        function openFilterSidebar() {
+            filterSidebar.classList.add('active');
+            filterActions.classList.add('active');
+            sidebarOverlay.classList.add('active');
+        }
+        
+        function closeFilterSidebar() {
+            filterSidebar.classList.remove('active');
+            filterActions.classList.remove('active');
+            sidebarOverlay.classList.remove('active');
+        }
+        
+        filterToggleBtn.addEventListener('click', openFilterSidebar);
+        closeSidebarBtn.addEventListener('click', closeFilterSidebar);
+        sidebarOverlay.addEventListener('click', closeFilterSidebar);
+    </script>
+</body>
+</html> 
