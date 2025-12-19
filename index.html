@@ -443,9 +443,12 @@
                 const ingredient = meal[`strIngredient${i}`];
                 const measure = meal[`strMeasure${i}`];
                 if (ingredient && ingredient.trim()) {
-                    ingredients += `<li>${measure} ${ingredient}</li>`;
+                    const dose = measure ? measure.trim() : '';
+                    ingredients += `<li><span style="color: #e74c3c; font-weight: 700;">${dose}</span> ${ingredient}</li>`;
                 }
             }
+
+            const instructions = (meal.strInstructions || '').replace(/\n/g, '<br>');
 
             detailsDiv.innerHTML = `
                 <h2>${meal.strMeal}</h2>
@@ -459,13 +462,31 @@
                     <ul style="margin: 0 auto; display: inline-block; text-align: left;">
                         ${ingredients}
                     </ul>
-                    
-                    <h3>Instructions:</h3>
-                    <p>${meal.strInstructions}</p>
-                    
-                    ${meal.strYoutube ? `<p><a href="${meal.strYoutube}" target="_blank" style="color: #667eea; text-decoration: none; font-weight: 600;">🎥 Voir sur YouTube</a></p>` : ''}
+
+                    <div style="margin-top: 15px; display: flex; justify-content: center;">
+                        <button id="toggleInstructions" style="padding: 10px 18px; border: none; background: #e74c3c; color: white; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                            Afficher plus
+                        </button>
+                    </div>
+
+                    <div id="instructionsContent" class="hidden" style="margin-top: 15px; text-align: left; line-height: 1.6;">
+                        <h3>Instructions:</h3>
+                        <p style="margin-top: 8px;">${instructions}</p>
+                        ${meal.strYoutube ? `<p style="margin-top: 10px;"><a href="${meal.strYoutube}" target="_blank" style="color: #667eea; text-decoration: none; font-weight: 600;">🎥 Voir sur YouTube</a></p>` : ''}
+                    </div>
                 </div>
             `;
+
+            // Toggle instructions visibility on demand
+            const toggleBtn = document.getElementById('toggleInstructions');
+            const instructionsContent = document.getElementById('instructionsContent');
+            if (toggleBtn && instructionsContent) {
+                toggleBtn.addEventListener('click', () => {
+                    const hidden = instructionsContent.classList.contains('hidden');
+                    instructionsContent.classList.toggle('hidden');
+                    toggleBtn.textContent = hidden ? 'Afficher moins' : 'Afficher plus';
+                });
+            }
             
             modal.classList.remove('hidden');
         }
