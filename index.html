@@ -272,7 +272,7 @@
                         <span>🔥 ${meal.generatedCalories} cal</span>
                     </div>
                     <button class="btn-order" onclick="alert('Plat ajouté au panier: ${name}')">COMMANDER</button>
-                    <button class="btn-details" onclick="showMealDetails('${meal.idMeal}')">DÉTAILS</button>
+                    <button class="btn-details" onclick="window.location.href='details.html?id=${meal.idMeal}'">DÉTAILS</button>
                 `;
                 
                 menuGrid.appendChild(card);
