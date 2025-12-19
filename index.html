@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tasty Corner - Nourriture Bio Facile & Saine</title>
+    <title>TastyCorner - Nourriture Bio Facile & Saine</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -11,7 +11,7 @@
     <!-- Navigation -->
     <nav class="navbar">
         <div class="nav-container">
-            <a href="#" class="logo">Tasty Corner</a>
+            <a href="#" class="logo">TastyCorner</a>
             <button class="burger-menu" id="burgerBtn" aria-label="Menu">
                 <span></span>
                 <span></span>
@@ -58,8 +58,11 @@
         </div>
         
         <div class="filter-section">
-            <h3>Exclure un ingrédient</h3>
-            <input type="text" id="excludeIngredient" placeholder="Ex: chicken, beef..." />
+            <h3>Exclure des ingrédients</h3>
+            <input type="text" id="ingredientSearch" placeholder="Rechercher un ingrédient..." style="margin-bottom: 10px;" />
+            <select id="excludeIngredient" multiple="multiple" size="8">
+                <option disabled>Chargement des ingrédients...</option>
+            </select>
         </div>
         
         <div class="filter-section">
@@ -97,7 +100,7 @@
 
     <!-- Footer -->
     <footer class="footer">
-        <p>&copy; 2025 Tasty Corner. Tous droits réservés.</p>
+        <p>&copy; 2025 TastyCorner. Tous droits réservés.</p>
     </footer>
 
     <!-- Modal pour les détails du plat -->
@@ -142,6 +145,71 @@
                 console.error('Erreur lors du chargement des pays:', error);
             }
         }
+
+        // Charger tous les ingrédients disponibles
+        let allIngredients = [];
+        async function loadIngredients() {
+            try {
+                const response = await fetch('https://www.themealdb.com/api/json/v1/1/list.php?i=list');
+                const data = await response.json();
+                const ingredientSelect = document.getElementById('excludeIngredient');
+                ingredientSelect.innerHTML = '';
+                
+                if (data.meals) {
+                    // Trier les ingrédients par ordre alphabétique
+                    allIngredients = data.meals
+                        .map(item => item.strIngredient)
+                        .filter(ing => ing && ing.trim())
+                        .sort();
+                    
+                    allIngredients.forEach(ingredient => {
+                        const option = document.createElement('option');
+                        option.value = ingredient.toLowerCase();
+                        option.textContent = ingredient;
+                        ingredientSelect.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Erreur lors du chargement des ingrédients:', error);
+                const ingredientSelect = document.getElementById('excludeIngredient');
+                ingredientSelect.innerHTML = '<option disabled>Erreur de chargement</option>';
+            }
+        }
+
+        // Filtrer les ingrédients lors de la recherche
+        const ingredientSearch = document.getElementById('ingredientSearch');
+        ingredientSearch.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const ingredientSelect = document.getElementById('excludeIngredient');
+            const selectedValues = Array.from(ingredientSelect.selectedOptions).map(opt => opt.value); // lower-case values
+            
+            // Construire la liste filtrée et y inclure en priorité les ingrédients déjà sélectionnés
+            const filteredIngredients = searchTerm
+                ? allIngredients.filter(ing => ing.toLowerCase().includes(searchTerm))
+                : allIngredients;
+
+            // Remonter les ingrédients sélectionnés en tête et éviter les doublons
+            const selectedDisplay = selectedValues
+                .map(val => allIngredients.find(ing => ing.toLowerCase() === val))
+                .filter(Boolean);
+            
+            const finalList = [
+                ...selectedDisplay,
+                ...filteredIngredients.filter(ing => !selectedValues.includes(ing.toLowerCase()))
+            ];
+
+            // Recréer les options en conservant toutes les sélections existantes
+            ingredientSelect.innerHTML = '';
+            finalList.forEach(ingredient => {
+                const option = document.createElement('option');
+                option.value = ingredient.toLowerCase();
+                option.textContent = ingredient;
+                if (selectedValues.includes(ingredient.toLowerCase())) {
+                    option.selected = true;
+                }
+                ingredientSelect.appendChild(option);
+            });
+        });
 
         // Charger les plats par défaut au démarrage
         async function loadDefaultMeals() {
@@ -250,7 +318,8 @@
         // Fonction pour appliquer les filtres
         async function applyFilters() {
             const selectedCountry = countryFilter.value;
-            const excludedIngredient = excludeIngredient.value.trim().toLowerCase();
+            const excludeSelect = document.getElementById('excludeIngredient');
+            const excludedIngredients = Array.from(excludeSelect.selectedOptions).map(option => option.value.toLowerCase());
             
             loadingSpinner.classList.remove('hidden');
             menuGrid.innerHTML = '';
@@ -265,8 +334,8 @@
                     filteredMeals = allMealsCache.length > 0 ? allMealsCache : await getAllMeals();
                 }
                 
-                // Filtrer par ingrédient exclu si renseigné
-                if (excludedIngredient && filteredMeals.length > 0) {
+                // Filtrer par ingrédients exclus si sélectionnés
+                if (excludedIngredients.length > 0 && filteredMeals.length > 0) {
                     // Charger les détails de chaque plat pour vérifier les ingrédients
                     const mealsWithDetails = await Promise.all(
                         filteredMeals.slice(0, 50).map(async (meal) => {
@@ -275,14 +344,18 @@
                         })
                     );
                     
-                    // Filtrer les plats qui ne contiennent pas l'ingrédient exclu
+                    // Filtrer les plats qui ne contiennent aucun des ingrédients exclus
                     filteredMeals = mealsWithDetails.filter(meal => {
                         if (!meal) return false;
                         
                         for (let i = 1; i <= 20; i++) {
                             const ingredient = meal[`strIngredient${i}`];
-                            if (ingredient && ingredient.toLowerCase().includes(excludedIngredient)) {
-                                return false;
+                            if (ingredient && ingredient.trim()) {
+                                const ingredientLower = ingredient.toLowerCase();
+                                // Vérifier si cet ingrédient correspond à l'un des ingrédients exclus
+                                if (excludedIngredients.some(excluded => ingredientLower.includes(excluded))) {
+                                    return false; // Exclure ce plat
+                                }
                             }
                         }
                         return true;
@@ -301,7 +374,8 @@
         // Réinitialiser les filtres
         function resetFilters() {
             countryFilter.value = '';
-            excludeIngredient.value = '';
+            const excludeSelect = document.getElementById('excludeIngredient');
+            Array.from(excludeSelect.options).forEach(option => option.selected = false);
             displayMeals(allMealsCache);
         }
         
@@ -324,9 +398,26 @@
         sortPriceAscBtn.addEventListener('click', sortByPriceAsc);
         sortPriceDescBtn.addEventListener('click', sortByPriceDesc);
 
-        // Charger les plats et pays par défaut au démarrage
+        // Activer sélection multi sans Ctrl/Shift sur la liste
+        function initExcludeIngredientToggle() {
+            const ingredientSelect = document.getElementById('excludeIngredient');
+            if (!ingredientSelect) return;
+            ingredientSelect.addEventListener('mousedown', (e) => {
+                const target = e.target;
+                if (target && target.tagName === 'OPTION') {
+                    e.preventDefault();
+                    target.selected = !target.selected;
+                    ingredientSelect.dispatchEvent(new Event('change')); // notifier les changements
+                }
+                ingredientSelect.focus();
+            });
+        }
+
+        // Charger les plats, pays et ingrédients par défaut au démarrage
         loadDefaultMeals();
         loadCountries();
+        loadIngredients();
+        initExcludeIngredientToggle();
 
         // Afficher les détails du plat
         async function showMealDetails(mealId) {

@@ -295,16 +295,90 @@ body {
 .filter-section input {
     width: 100%;
     padding: 12px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
     font-size: 0.95rem;
     background: white;
+    transition: all 0.3s ease;
+}
+
+#ingredientSearch {
+    margin-bottom: 10px;
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+}
+
+#ingredientSearch:focus {
+    background: white;
+    border-color: #e74c3c;
+    box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.1);
+}
+
+#ingredientSearch::placeholder {
+    color: #999;
+    font-style: italic;
+}
+
+.filter-section select[multiple] {
+    min-height: 250px;
+    padding: 8px;
+    background: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.filter-section select[multiple] option {
+    padding: 10px 12px;
+    border-radius: 4px;
+    margin: 3px 0;
+    cursor: pointer;
+    background: white;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.filter-section select[multiple] option:hover {
+    background: #f0f4f8;
+    border-color: #e74c3c;
+}
+
+.filter-section select[multiple] option:checked {
+    background: #fff5f5;
+    color: #e74c3c;
+    font-weight: 600;
+    border-left: 3px solid #e74c3c;
+    padding-left: 9px;
+}
+
+.filter-section select[multiple] option:checked::before {
+    content: "✓ ";
+    margin-right: 5px;
+    font-weight: bold;
 }
 
 .filter-section select:focus,
 .filter-section input:focus {
     outline: none;
     border-color: #e74c3c;
+    box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.1);
+}
+
+.filter-section select[multiple]::-webkit-scrollbar {
+    width: 8px;
+}
+
+.filter-section select[multiple]::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.filter-section select[multiple]::-webkit-scrollbar-thumb {
+    background: #e74c3c;
+    border-radius: 4px;
+}
+
+.filter-section select[multiple]::-webkit-scrollbar-thumb:hover {
+    background: #c0392b;
 }
 
 .filter-btn {
