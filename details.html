@@ -38,7 +38,7 @@
 
         <div id="errorMessage" class="hidden" style="color: red; font-weight: 600; margin-bottom: 20px;"></div>
 
-        <div id="detailsContainer" class="menu-card" style="max-width: 800px; margin: 0 auto;"></div>
+        <div id="detailsContainer" style="max-width: 1200px; margin: 0 auto;"></div>
 
         <div style="margin-top: 25px; display: flex; justify-content: center;">
             <button class="btn-view-all" onclick="window.location.href='index.html'">← Retour au menu</button>
@@ -57,6 +57,28 @@
         const params = new URLSearchParams(window.location.search);
         const mealId = params.get('id');
 
+        // Fonction pour extraire l'ID d'une vidéo YouTube
+        function extractYoutubeId(url) {
+            if (!url) return null;
+            
+            // Différents formats d'URL YouTube
+            const patterns = [
+                /(?:youtube\.com\/watch\?v=)([^&]+)/,
+                /(?:youtube\.com\/embed\/)([^?]+)/,
+                /(?:youtu\.be\/)([^?]+)/,
+                /(?:youtube\.com\/v\/)([^?]+)/
+            ];
+            
+            for (const pattern of patterns) {
+                const match = url.match(pattern);
+                if (match && match[1]) {
+                    return match[1];
+                }
+            }
+            
+            return null;
+        }
+
         function renderMeal(meal) {
             // Construire la liste des ingrédients
             let ingredients = '';
@@ -65,51 +87,73 @@
                 const measure = meal[`strMeasure${i}`];
                 if (ingredient && ingredient.trim()) {
                     const dose = measure ? measure.trim() : '';
-                    ingredients += `<li><span style="color: #e74c3c; font-weight: 700;">${dose}</span> ${ingredient}</li>`;
+                    ingredients += `<li style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;"><span style="color: #e74c3c; font-weight: 700;">${dose}</span> ${ingredient}</li>`;
                 }
             }
 
-            const instructions = (meal.strInstructions || '').replace(/\n/g, '<br>');
+            const instructions = (meal.strInstructions || '').split('\n').filter(line => line.trim()).map((line, index) => 
+                `<li style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; line-height: 1.6;">${line}</li>`
+            ).join('');
+
+            // Extraire l'ID de la vidéo YouTube
+            let youtubeEmbed = '';
+            if (meal.strYoutube) {
+                const youtubeId = extractYoutubeId(meal.strYoutube);
+                if (youtubeId) {
+                    youtubeEmbed = `
+                        <div style="margin-top: 30px; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                            <h3 style="color: #e74c3c; margin-bottom: 20px; font-size: 1.5rem; text-align: center;">🎥 YouTube</h3>
+                            <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                                <iframe 
+                                    style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
+                                    src="https://www.youtube.com/embed/${youtubeId}" 
+                                    frameborder="0" 
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                    allowfullscreen>
+                                </iframe>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
 
             detailsContainer.innerHTML = `
-                <div class="card-image" style="height: 320px;">
-                    <img src="${meal.strMealThumb}" alt="${meal.strMeal}" style="width: 100%; height: 100%; object-fit: cover;">
-                    <span class="label">${meal.strArea || meal.strCategory || 'Cuisine'}</span>
-                </div>
-                <h3 style="padding: 20px 15px 10px; font-size: 1.4rem;">${meal.strMeal}</h3>
-                <div class="card-info">
-                    <span class="price">${meal.strCategory || ''}</span>
-                    <span class="time">${meal.strArea || ''}</span>
-                </div>
-                <div class="card-meta" style="text-align: left;">
-                    <h3 style="margin-bottom: 10px; color: #c0392b;">Ingrédients</h3>
-                    <ul style="list-style: none; padding: 0; margin: 0;">
-                        ${ingredients}
-                    </ul>
-
-                    <div style="margin-top: 15px; display: flex; justify-content: flex-start;">
-                        <button id="toggleInstructions" style="padding: 10px 18px; border: none; background: #e74c3c; color: white; border-radius: 6px; cursor: pointer; font-weight: 600;">
-                            Afficher plus
-                        </button>
+                <h3 style="padding: 0 0 20px; font-size: 1.8rem; color: #333; text-align: center;">${meal.strMeal}</h3>
+                
+                <!-- Section principale avec image et ingrédients côte à côte -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 30px;">
+                    <!-- Image -->
+                    <div style="background: white; padding: 15px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                        <div style="position: relative; width: 100%; height: 350px; border-radius: 12px; overflow: hidden;">
+                            <img src="${meal.strMealThumb}" alt="${meal.strMeal}" style="width: 100%; height: 100%; object-fit: cover;">
+                            <span style="position: absolute; top: 15px; left: 15px; background: #e74c3c; color: white; padding: 8px 15px; border-radius: 8px; font-size: 0.9rem; font-weight: 600;">${meal.strArea || meal.strCategory || 'Cuisine'}</span>
+                        </div>
+                        <div style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center; padding: 10px 0;">
+                            <span style="font-weight: 600; color: #e74c3c; font-size: 1.1rem;">${meal.strCategory || ''}</span>
+                            <span style="color: #999;">${meal.strArea || ''}</span>
+                        </div>
                     </div>
-
-                    <div id="instructionsContent" class="hidden" style="margin-top: 15px; line-height: 1.6;">
-                        <h3 style="color: #c0392b;">Instructions</h3>
-                        <p style="margin-top: 8px;">${instructions}</p>
-                        ${meal.strYoutube ? `<p style="margin-top: 10px;"><a href="${meal.strYoutube}" target="_blank" style="color: #667eea; text-decoration: none; font-weight: 600;">🎥 Voir sur YouTube</a></p>` : ''}
+                    
+                    <!-- Ingrédients -->
+                    <div style="background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                        <h3 style="margin-bottom: 20px; color: #e74c3c; font-size: 1.5rem; text-align: center;">Ingrédients</h3>
+                        <ul style="list-style: none; padding: 0; margin: 0; max-height: 320px; overflow-y: auto;">
+                            ${ingredients}
+                        </ul>
                     </div>
+                </div>
+                
+                <!-- Vidéo YouTube -->
+                ${youtubeEmbed}
+                
+                <!-- Étapes de préparation -->
+                <div style="margin-top: 30px; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                    <h3 style="color: #e74c3c; margin-bottom: 20px; font-size: 1.5rem; text-align: center;">Étapes de préparation</h3>
+                    <ol style="list-style: none; padding: 0; margin: 0; counter-reset: step-counter;">
+                        ${instructions}
+                    </ol>
                 </div>
             `;
-
-            const toggleBtn = document.getElementById('toggleInstructions');
-            const instructionsContent = document.getElementById('instructionsContent');
-            if (toggleBtn && instructionsContent) {
-                toggleBtn.addEventListener('click', () => {
-                    const hidden = instructionsContent.classList.contains('hidden');
-                    instructionsContent.classList.toggle('hidden');
-                    toggleBtn.textContent = hidden ? 'Afficher moins' : 'Afficher plus';
-                });
-            }
         }
 
         async function init() {
